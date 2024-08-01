@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <conio.h>
 
 #define MAX_LINE_LENGTH 526
 #define MAX_LINES 10000
@@ -19,6 +20,7 @@ char file_name[1024];
 int cline = 0;
 char lines[MAX_LINES][MAX_LINE_LENGTH];
 char paste[MAX_LINE_LENGTH];
+int has_changes = 0;
 
 int process_command(const char *command);
 void insert_line(int line, const char *text);
@@ -26,31 +28,39 @@ void insert_line(int line, const char *text);
 int getsize()
 {
     int size = 0;
-    for (int line=0; line < MAX_LINES; line++)
+    for (int line = 0; line < MAX_LINES; line++)
     {
         if (strlen(lines[line]) == 0)
         {
             continue;
         }
-        size += strlen(lines[line])+1;
+        size += strlen(lines[line]) + 1;
     }
     return size;
 }
 
-char* displaySize(int size) {
+char *displaySize(int size)
+{
     double convertedSize;
     const char *unit;
 
-    if (size >= 1024 * 1024 * 1024) {
+    if (size >= 1024 * 1024 * 1024)
+    {
         convertedSize = (double)size / (1024 * 1024 * 1024);
         unit = "GB";
-    } else if (size >= 1024 * 1024) {
+    }
+    else if (size >= 1024 * 1024)
+    {
         convertedSize = (double)size / (1024 * 1024);
         unit = "MB";
-    } else if (size >= 1024) {
+    }
+    else if (size >= 1024)
+    {
         convertedSize = (double)size / 1024;
         unit = "KB";
-    } else {
+    }
+    else
+    {
         convertedSize = (double)size;
         unit = "bytes";
     }
@@ -77,14 +87,14 @@ void into_a()
     printf("Type '.' to finish.\n");
     while (1)
     {
-        printf("%04d: ", cline+1);
+        printf("%04d: ", cline + 1);
         fgets(text, sizeof(text), stdin);
         if (strcmp(text, ".\n") == 0)
         {
             break;
         }
-        text[strlen(text)-1] = '\0';
-        strcpy(lines[cline++],text);
+        text[strlen(text) - 1] = '\0';
+        strcpy(lines[cline++], text);
     }
 }
 
@@ -100,8 +110,8 @@ void into_i(int line)
         {
             break;
         }
-        text[strlen(text)-1] = '\0';
-        insert_line(line++ ,text);
+        text[strlen(text) - 1] = '\0';
+        insert_line(line++, text);
     }
 }
 
@@ -112,7 +122,6 @@ void print_lines()
         printf("%04d: %s\n", p + 1, lines[p]);
     }
 }
-
 
 void print_lines_raw()
 {
@@ -126,7 +135,7 @@ void delete_line(int line)
 {
     if (line <= cline && line > 0)
     {
-        strcpy(paste, lines[line-1]);
+        strcpy(paste, lines[line - 1]);
         for (int p = line; p < cline; p++)
         {
             strncpy(lines[p - 1], lines[p], MAX_LINE_LENGTH);
@@ -195,7 +204,7 @@ char *read_file(const char *filename)
 void load_file(const char *filename)
 {
     delete_lines();
-    
+
     char *file_contents = read_file(filename);
     if (file_contents == NULL)
     {
@@ -208,7 +217,7 @@ void load_file(const char *filename)
         strncpy(lines[cline++], line, MAX_LINE_LENGTH);
         line = strtok(NULL, "\n");
     }
-    
+
     printf(GREEN "Loaded file!\n%s\n" RESET, displaySize(getsize()));
 
     free(file_contents);
@@ -251,14 +260,14 @@ int run_file(const char *filename)
     return 0;
 }
 
-void save_file(const char *filename)
+int save_file(const char *filename)
 {
     FILE *file = fopen(filename, "w");
     int size = 0;
     if (file == NULL)
     {
         perror(RED "Error opening file for writing" RESET);
-        return;
+        return 1;
     }
 
     for (int p = 0; p < cline; p++)
@@ -269,6 +278,7 @@ void save_file(const char *filename)
 
     fclose(file);
     printf(GREEN "File saved successfully.\n%s\n" RESET, displaySize(getsize()));
+    return 0;
 }
 
 void insert_line(int line, const char *text)
@@ -414,9 +424,19 @@ int process_command(const char *command)
     {
         int line;
         char text[MAX_LINE_LENGTH];
-        if (sscanf(command, "r %d :%[^\n]", &line, text) == 2 && line > 0 && line <= cline)
+        int argc = sscanf(command, "r %d :%[^\n]", &line, text);
+        if (!(line > 0 && line <= cline))
+        {
+            printf(RED "Error: Invalid line number or text.\n" RESET);
+            return 1;
+        }
+        if (argc == 2)
         {
             strncpy(lines[line - 1], text, MAX_LINE_LENGTH);
+        }
+        else if (argc == 1)
+        {
+            strncpy(lines[line - 1], "", MAX_LINE_LENGTH);
         }
         else
         {
@@ -428,9 +448,9 @@ int process_command(const char *command)
     {
         int line, index;
         char text;
-        if (sscanf(command, "rc %d %d %c", &line, &index, &text) == 3 && line > 0 && line <= cline && index >= 0 && index-1 < strlen(lines[line-1]))
+        if (sscanf(command, "rc %d %d %c", &line, &index, &text) == 3 && line > 0 && line <= cline && index >= 0 && index - 1 < strlen(lines[line - 1]))
         {
-            lines[line-1][index] = text;
+            lines[line - 1][index] = text;
         }
         else
         {
@@ -444,9 +464,9 @@ int process_command(const char *command)
         char text[MAX_LINE_LENGTH];
         if (sscanf(command, "rs %d %d :%s", &line, &index, &text) == 3 && line > 0 && line <= cline && index >= 0 && index < MAX_LINE_LENGTH)
         {
-            for (int p=0; p < strlen(lines[line-1]) && p < strlen(text); p++)
+            for (int p = 0; p < strlen(lines[line - 1]) && p < strlen(text); p++)
             {
-                lines[line-1][index++] = text[p];
+                lines[line - 1][index++] = text[p];
             }
         }
         else
@@ -459,9 +479,14 @@ int process_command(const char *command)
     {
         int line;
         char text[MAX_LINE_LENGTH];
-        if (sscanf(command, "i %d :%[^\n]", &line, text) == 2)
+        int argc = sscanf(command, "i %d :%[^\n]", &line, text);
+        if (argc == 2)
         {
             insert_line(line, text);
+        }
+        else if (argc == 1)
+        {
+            insert_line(line, "");
         }
         else
         {
@@ -505,9 +530,9 @@ int process_command(const char *command)
         if (sscanf(command, "sl %d %d", &scr, &dest) == 2)
         {
             char temp[MAX_LINE_LENGTH];
-            strcpy(temp, lines[scr-1]);
-            strcpy(lines[scr-1], lines[dest-1]);
-            strcpy(lines[dest-1], temp);
+            strcpy(temp, lines[scr - 1]);
+            strcpy(lines[scr - 1], lines[dest - 1]);
+            strcpy(lines[dest - 1], temp);
         }
         else
         {
@@ -517,17 +542,19 @@ int process_command(const char *command)
     }
     else if (strncmp(command, "pr", 2) == 0 && strlen(command) == 2)
     {
-        if (cline-10 > 0)
+        if (cline - 10 > 0)
         {
-            for (int start=cline-11; start < cline && start < MAX_LINES; start++)
+            for (int start = cline - 11; start < cline && start < MAX_LINES; start++)
             {
                 printf("%04d: %s\n", start + 1, lines[start]);
             }
-        } else {
+        }
+        else
+        {
             int st = 10;
-            while (cline-st < 0 && st < MAX_LINES)
+            while (cline - st < 0 && st < MAX_LINES)
                 st--;
-            for (int start=cline-st; start < cline && start < MAX_LINES; start++)
+            for (int start = cline - st; start < cline && start < MAX_LINES; start++)
             {
                 printf("%04d: %s\n", start + 1, lines[start]);
             }
@@ -536,7 +563,7 @@ int process_command(const char *command)
     else if (strncmp(command, "p ", 2) == 0)
     {
         int line = atoi(command + 2);
-        if (line > 0 && line-1 <= cline)
+        if (line > 0 && line - 1 <= cline)
         {
             printf("%04d: %s\n", line, lines[line - 1]);
         }
@@ -549,9 +576,9 @@ int process_command(const char *command)
     else if (strncmp(command, "pi ", 3) == 0)
     {
         int line = atoi(command + 3);
-        if (line > 0 && line-1 <= cline)
+        if (line > 0 && line - 1 <= cline)
         {
-            for (int index=0; index < strlen(lines[line-1]); index++)
+            for (int index = 0; index < strlen(lines[line - 1]); index++)
             {
                 printf("%04d: %c\n", index, lines[line - 1][index]);
             }
@@ -585,7 +612,9 @@ int process_command(const char *command)
         if (sscanf(command, "dr %d %d", &start, &end) == 2)
         {
             rdelete_lines(start, end);
-        } else {
+        }
+        else
+        {
             printf(RED "oh no: %s\n" RESET, command);
         }
     }
@@ -610,7 +639,11 @@ int process_command(const char *command)
     {
         if (hasname)
         {
-            save_file(file_name);
+            if (!save_file(file_name))
+            {
+                has_changes = 0;
+                return 0;
+            }
         }
         else
         {
@@ -620,10 +653,56 @@ int process_command(const char *command)
     }
     else if (strncmp(command, "s ", 2) == 0)
     {
-        save_file(command + 2);
+        if (!save_file(command + 2))
+        {
+            has_changes = 0;
+            return 0;
+        }
     }
     else if (strncmp(command, "q", 1) == 0 && strlen(command) == 1)
     {
+        if (!has_changes)
+        {
+            return 2;
+        }
+        printf("Quit without saving? [y/n]\n");
+        char key;
+        while ((key = _getch()) != 'y')
+        {
+            switch (key)
+            {
+            case 'x':
+                if (hasname)
+                {
+                    if (save_file(file_name))
+                        return 1;
+                    return 2;
+                }
+                else
+                {
+                    printf("File (* to cancel): ");
+                    fgets(file_name, sizeof(file_name), stdin);
+                    file_name[strcspn(file_name, "\n")] = '\0';
+                    if (!strcmp(file_name, "*") == 0)
+                    {
+                        if (save_file(file_name))
+                            return 1;
+                        return 2;
+                    }
+                }
+                break;
+            case 'c':
+                return 0;
+            case 'n':
+                return 0;
+            default:
+                printf(
+                    "x - Save and quit.\n"
+                    "c or n - Cancel.\n"
+                    "y - Dont save.\n");
+                break;
+            }
+        }
         return 2;
     }
     else if (strncmp(command, "% ", 2) == 0)
@@ -702,7 +781,7 @@ int process_command(const char *command)
             printf(RED "The buffer is empty!\n" RESET);
             return 1;
         }
-        strcpy(paste, lines[cline-1]);
+        strcpy(paste, lines[cline - 1]);
     }
     else if (strncmp(command, "cps", 3) == 0 && strlen(command) == 3)
     {
@@ -751,9 +830,13 @@ int process_command(const char *command)
     }
     else
     {
-        printf(RED "Error Unknown command\n" RESET);
-        return 1;
+        if (strlen(command))
+        {
+            printf(RED "Error Unknown command\n" RESET);
+            return 1;
+        }
     }
+    has_changes = 1;
     return 0;
 }
 

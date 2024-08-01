@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <conio.h>
 
 #define MAX_LINE_LENGTH 526
 #define MAX_LINES 10000
@@ -667,8 +666,9 @@ int process_command(const char *command)
         }
         printf("Quit without saving? [y/n]\n");
         char key;
-        while ((key = _getch()) != 'y')
+        while ((key = getchar()) != 'y')
         {
+            fflush(stdin);
             switch (key)
             {
             case 'x':
